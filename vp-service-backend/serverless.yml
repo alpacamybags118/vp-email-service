@@ -1,0 +1,51 @@
+service: vp-service-backend
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+
+functions:
+  add-vp:
+    handler: handler.AddVP
+    environment:
+      DYNAMO_TABLE_NAME: vpTable
+    events:
+      - httpApi:
+          path: /vp
+          method: put
+
+custom:
+  dynamodb:
+    stages: dev
+    start:
+      port: 5000
+      migrate: true
+
+resources:
+  Resources:
+    vpTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: vpTable
+        AttributeDefinitions:
+          - AttributeName: name
+            AttributeType: S
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: email
+            KeyType: HASH
+          - AttributeName: name
+            KeyType: RANGE
+        ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
+
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-dynamodb-local
+  - serverless-offline
+
+
