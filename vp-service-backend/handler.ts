@@ -2,7 +2,11 @@ import {
   APIGatewayProxyEvent,
   Context,
   APIGatewayProxyResult,
+  SQSEvent,
+  SQSBatchResponse
 } from 'aws-lambda';
+import EmailClient from './helpers/email-client';
+import EmailQueue from './helpers/email-queue';
 
 import { Validator } from './helpers/validator';
 import VPDataAccess from './helpers/vp-data-access';
@@ -14,7 +18,7 @@ export async function AddVP(event:APIGatewayProxyEvent, context: Context): Promi
   let vp: VP;
 
   try {
-    vp = Validator.ValidateRequest(event)
+    vp = Validator.ValidateRequest(event.body || "")
   } catch(err: unknown) {
     return {
       statusCode: 500,
@@ -22,18 +26,56 @@ export async function AddVP(event:APIGatewayProxyEvent, context: Context): Promi
     }
   }
   console.log('writing data')
-  return vpDataAccess.WriteVP(vp)
-    .then(() => {
-      return {
-        statusCode: 200,
-        body: 'good',
-      }
-    })
+  await vpDataAccess.WriteVP(vp)
     .catch((err) => {
       return {
         statusCode: 500,
-        body: `${err}`
+        body: `Could not save VP info: ${err}`
       }
-    })
+    });
+
+  console.log('putting email in queue');
   
+  const emailQueue = new EmailQueue();
+
+  await emailQueue.PutEmailInQueue(vp)
+    .catch((err) => {
+      console.error(`Unable to send email to VP: ${err}`); // want to log we couldnt send an email but shouldnt fail the function
+    });
+
+  return {
+    statusCode: 200,
+    body: 'VP successfully added',
+  }
+}
+
+export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | undefined> {
+  let vp: VP;
+  console.log('in the email function')
+  try {
+    vp = Validator.ValidateRequest(event.Records[0].body)
+  } catch(err: unknown) {
+    console.error(err);
+    return {
+      batchItemFailures:[{
+        itemIdentifier: event.Records[0].messageId
+      }]
+    }
+  }
+
+  const sesClient = new EmailClient();
+
+  await sesClient.SendEmail(vp)
+  .then(() => {
+    return {};
+  })
+  .catch((err) => {
+    console.error(err);
+
+    return {
+      batchItemFailures:[{
+        itemIdentifier: event.Records[0].messageId
+      }]
+    }
+  });
 }

@@ -14,16 +14,64 @@ functions:
       - httpApi:
           path: /vp
           method: put
+  send-email:
+    handler: handler.SendEmail
+    environment:
+      DYNAMO_TABLE_NAME: vpTable
+    events:
+      - sqs:
+          arn: 
+            Fn::GetAtt:
+              - emailQueue
+              - Arn
 
 custom:
   dynamodb:
     stages: dev
     start:
-      port: 5000
+      port: 8000
       migrate: true
+  serverless-offline-sqs:
+    autoCreate: true
+    apiVersion: '2012-11-05'
+    endpoint: http://0.0.0.0:9324
+    region: us-east-2
+    accessKeyId: root
+    secretAccessKey: root
+    skipCacheInvalidation: false
+  apiGwSqs:
+    apiEndpoint: sendemail
+    queueName: 
+      Fn::GetAtt:
+              - emailQueue
+              - Name
 
 resources:
   Resources:
+    inviteTemplate:
+      Type: AWS::SES::Template
+      Properties:
+        Template:
+          TemplateName: invite-template
+          SubjectPart: Your Invite
+          HtmlPart: "<h1>Hello {{name}},</h1><p>Thank you for taking the time to speak to us! Please use the following links to accept or reject the invite for our next meeting.</p> <p>Accept: {{accepturl}}</p><p>Reject: {{rejecturl}}</p>"
+          TextPart: "Hello {{name}}Thank you for taking the time to speak to us! Please use the following links to accept or reject the invite for our next meeting. Accept: {{accepturl}} Reject: {{rejecturl}}"
+    emailQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: emailQueue
+    sendEmailResource:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: { "Fn::GetAtt": [{"Ref": "ApiGatewayRestApi"}, "RootResourceId"] }
+        PathPart: sendemail
+        RestApiId: {"Ref": "ApiGatewayRestApi"}
+    sendEmailMethod:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: {"Ref": "ApiGatewayRestApi"}
+        HttpMethod: POST
+        ResourceId: { "Fn::GetAtt": [{"Ref": "sendEmailResource"}, "Id"] }
     vpTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -45,7 +93,9 @@ resources:
 
 plugins:
   - serverless-plugin-typescript
+  - serverless-apigw-sqs-plugin
   - serverless-dynamodb-local
+  - serverless-offline-sqs
   - serverless-offline
 
 
