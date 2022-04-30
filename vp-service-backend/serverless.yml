@@ -4,12 +4,32 @@ frameworkVersion: '3'
 provider:
   name: aws
   runtime: nodejs14.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - 'dynamodb:GetItem'
+            - 'dynamodb:PutItem'
+            - 'dynamodb:Scan'
+          Resource: {Fn::GetAtt: [vpTable, Arn]}
+        - Effect: Allow
+          Action:
+            - 'sqs:SendMessage'
+            - 'sqs:ReceiveMessage'
+          Resource: {Fn::GetAtt: [emailQueue, Arn]}
+        - Effect: Allow
+          Action:
+            - 'ses:SendTemplatedEmail'
+          Resource: '*' # * so we can send an email to anyone
 
 functions:
   add-vp:
     handler: handler.AddVP
     environment:
       DYNAMO_TABLE_NAME: vpTable
+      QUEUE_URL: 
+        Fn::Join: ['/', ["https://sqs.us-east-2.amazonaws.com", "521296429118", {Fn::GetAtt: [emailQueue, QueueName]}]]
     events:
       - http:
           path: vp
@@ -116,6 +136,7 @@ resources:
         ProvisionedThroughput:
             ReadCapacityUnits: 1
             WriteCapacityUnits: 1
+
 
 
 plugins:

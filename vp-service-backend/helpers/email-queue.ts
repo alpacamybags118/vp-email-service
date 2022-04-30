@@ -7,14 +7,14 @@ export default class EmailQueue {
   constructor(){
     this.sqsClient = new SQSClient({ // TODO pass in client instead for testing ease
       region: 'us-east-2',
-      endpoint: 'http://localhost:9324'
+      ...(process.env.IS_OFFLINE && {endpoint: 'http://localhost:9324'}),
     });
   }
 
   public async PutEmailInQueue(vp: VP): Promise<SendMessageCommandOutput> {
     const message = new SendMessageCommand({
       MessageBody: JSON.stringify(vp),
-      QueueUrl: 'http://localhost:9324/000000000000/emailQueue'
+      QueueUrl: process.env.QUEUE_URL,
     });
 
     return this.sqsClient.send(message);

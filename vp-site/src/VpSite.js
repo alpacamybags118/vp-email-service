@@ -31,13 +31,7 @@ class VpSite extends Component {
   }
 
   getVps() {
-    return fetch('http://localhost:5000/vp', {
-      headers: {
-        'origin': 'localhost',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET',
-      }
-    })
+    return fetch('https://1l1wytd5s4.execute-api.us-east-2.amazonaws.com/dev/vp')
       .then((res) => res.json())
       .then((data) => {
         console.log(data)

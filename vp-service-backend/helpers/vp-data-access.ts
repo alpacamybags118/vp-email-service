@@ -6,8 +6,8 @@ export default class VPDataAccess{
 
   constructor() {
     this.dynamoClient = new DynamoDBClient({
-      region: 'localhost', // TODO: read this from an env var
-      endpoint: 'http://localhost:8000',
+      region: process.env.IS_OFFLINE ? 'localhost' : 'us-east-2',
+      ...(process.env.IS_OFFLINE && { endpoint: 'http://localhost:8000' }),
     });
   }
 
