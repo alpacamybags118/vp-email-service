@@ -5,7 +5,7 @@ export default class EmailQueue {
   private sqsClient: SQSClient
 
   constructor(){
-    this.sqsClient = new SQSClient({
+    this.sqsClient = new SQSClient({ // TODO pass in client instead for testing ease
       region: 'us-east-2',
       endpoint: 'http://localhost:9324'
     });

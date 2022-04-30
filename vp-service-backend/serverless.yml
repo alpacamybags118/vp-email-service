@@ -11,9 +11,20 @@ functions:
     environment:
       DYNAMO_TABLE_NAME: vpTable
     events:
-      - httpApi:
-          path: /vp
+      - http:
+          path: vp
           method: put
+          cors: true
+  get-vps:
+    handler: handler.GetVps
+    environment:
+      DYNAMO_TABLE_NAME: vpTable
+    events:
+      - http:
+          path: vp
+          method: get
+          cors: true
+            
   send-email:
     handler: handler.SendEmail
     environment:
@@ -26,11 +37,18 @@ functions:
               - Arn
 
 custom:
+  serverless-offline:
+    httpPort: 5000
+    noPrependStageInUrl: true,
+    corsAllowOrigin: '*'
+    corsAllowHeaders: 'accept,content-type,x-api-key'
   dynamodb:
-    stages: dev
+    stages:
+      - dev
     start:
       port: 8000
       migrate: true
+      docker: true
   serverless-offline-sqs:
     autoCreate: true
     apiVersion: '2012-11-05'
@@ -48,30 +66,39 @@ custom:
 
 resources:
   Resources:
-    inviteTemplate:
-      Type: AWS::SES::Template
+    GatewayResponseDefault4XX:
+      Type: 'AWS::ApiGateway::GatewayResponse'
       Properties:
-        Template:
-          TemplateName: invite-template
-          SubjectPart: Your Invite
-          HtmlPart: "<h1>Hello {{name}},</h1><p>Thank you for taking the time to speak to us! Please use the following links to accept or reject the invite for our next meeting.</p> <p>Accept: {{accepturl}}</p><p>Reject: {{rejecturl}}</p>"
-          TextPart: "Hello {{name}}Thank you for taking the time to speak to us! Please use the following links to accept or reject the invite for our next meeting. Accept: {{accepturl}} Reject: {{rejecturl}}"
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+    inviteTemplate:
+        Type: AWS::SES::Template
+        Properties:
+          Template:
+            TemplateName: invite-template
+            SubjectPart: Your Invite
+            HtmlPart: "<h1>Hello {{name}},</h1><p>Thank you for taking the time to speak to us! Please use the following links to accept or reject the invite for our next meeting.</p> <p>Accept: {{accepturl}}</p><p>Reject: {{rejecturl}}</p>"
+            TextPart: "Hello {{name}}Thank you for taking the time to speak to us! Please use the following links to accept or reject the invite for our next meeting. Accept: {{accepturl}} Reject: {{rejecturl}}"
     emailQueue:
       Type: AWS::SQS::Queue
       Properties:
         QueueName: emailQueue
-    sendEmailResource:
-      Type: AWS::ApiGateway::Resource
-      Properties:
-        ParentId: { "Fn::GetAtt": [{"Ref": "ApiGatewayRestApi"}, "RootResourceId"] }
-        PathPart: sendemail
-        RestApiId: {"Ref": "ApiGatewayRestApi"}
-    sendEmailMethod:
-      Type: AWS::ApiGateway::Method
-      Properties:
-        RestApiId: {"Ref": "ApiGatewayRestApi"}
-        HttpMethod: POST
-        ResourceId: { "Fn::GetAtt": [{"Ref": "sendEmailResource"}, "Id"] }
+    # sendEmailResource:
+    #   Type: AWS::ApiGateway::Resource
+    #   Properties:
+    #     ParentId: { "Fn::GetAtt": [{"Ref": "ApiGatewayRestApi"}, "RootResourceId"] }
+    #     PathPart: sendemail
+    #     RestApiId: {"Ref": "ApiGatewayRestApi"}
+    # sendEmailMethod:
+    #   Type: AWS::ApiGateway::Method
+    #   Properties:
+    #     RestApiId: {"Ref": "ApiGatewayRestApi"}
+    #     HttpMethod: POST
+    #     ResourceId: { "Fn::GetAtt": [{"Ref": "sendEmailResource"}, "Id"] }
     vpTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -93,8 +120,6 @@ resources:
 
 plugins:
   - serverless-plugin-typescript
-  - serverless-apigw-sqs-plugin
-  - serverless-dynamodb-local
   - serverless-offline-sqs
   - serverless-offline
 

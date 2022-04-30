@@ -9,3 +9,12 @@ invitationeventhandler - will take in a JWT and update the VP status based on if
 JWT token for encoding accept or reject w/ expiration - will need to be encrypted with KMS to prevent tampering
 
 NODE_ENV=test for local sqs
+
+TODO:
+1. create env files/configs for environment
+2. get UI to load vps
+3. Add add vp to ui
+4. add resend email to ui
+5. implement jwt token for email
+6. write unit tests
+7. write documentation

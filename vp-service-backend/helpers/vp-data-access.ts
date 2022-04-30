@@ -1,5 +1,5 @@
-import { DynamoDBClient,  PutItemCommand, PutItemCommandInput, PutItemCommandOutput} from '@aws-sdk/client-dynamodb'
-import VP from '../types/vp';
+import { DynamoDBClient,  PutItemCommand, PutItemCommandInput, PutItemCommandOutput, ScanCommand, ScanCommandOutput} from '@aws-sdk/client-dynamodb'
+import VP, { InvitationStatus } from '../types/vp';
 
 export default class VPDataAccess{
   private dynamoClient: DynamoDBClient
@@ -11,15 +11,32 @@ export default class VPDataAccess{
     });
   }
 
+  public async GetVps(): Promise<VP[]> {
+    const request = new ScanCommand({
+      TableName: process.env.DYNAMO_TABLE_NAME,
+    });
+
+    return this.dynamoClient.send(request)
+      .then((response: ScanCommandOutput) => {
+        return response.Items.map((record) => {
+          return new VP(record['name'].S, record['email'].S, record['emailSent'].BOOL, InvitationStatus[record['invitationStatus'].S]);
+        })
+      })
+      .catch((err: unknown) => {
+        console.log(err);
+        throw err;
+      })
+  }
+
   public async WriteVP(vp: VP): Promise<PutItemCommandOutput> {
-    console.log(process.env.DYNAMO_TABLE_NAME)
     const request = new PutItemCommand({
       TableName: process.env.DYNAMO_TABLE_NAME,//TODO: create a class to load env vars and inject.
       Item: vp.ToDynamoItemInput(),
     } as PutItemCommandInput)
-    console.log('stuff')
+
     return this.dynamoClient.send(request)
       .catch((err: unknown) => {
+        console.log(err);
         throw err
       });
   }

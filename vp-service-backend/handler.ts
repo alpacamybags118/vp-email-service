@@ -26,13 +26,19 @@ export async function AddVP(event:APIGatewayProxyEvent, context: Context): Promi
     }
   }
   console.log('writing data')
-  await vpDataAccess.WriteVP(vp)
+
+  try {
+    await vpDataAccess.WriteVP(vp)
     .catch((err) => {
+      throw new Error(`Could not save VP info: ${err}`)
+    });
+  } catch (err: unknown) {
       return {
         statusCode: 500,
-        body: `Could not save VP info: ${err}`
+        body: `${err}`
       }
-    });
+  }
+
 
   console.log('putting email in queue');
   
@@ -67,7 +73,9 @@ export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | und
 
   await sesClient.SendEmail(vp)
   .then(() => {
-    return {};
+    vp.emailSent = true;
+    console.log('writing update')
+    vpDataAccess.WriteVP(vp);
   })
   .catch((err) => {
     console.error(err);
@@ -78,4 +86,24 @@ export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | und
       }]
     }
   });
+}
+
+export async function GetVps(event:APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> {
+  const vps = await vpDataAccess.GetVps()
+    .catch((err: unknown) => {
+      return {
+        statusCode: 500,
+        body: `${err}`
+      }
+    });
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(vps),
+      headers: {
+        'Access-Control-Allow-Credentials': true,
+        'Access-Control-Allow-Origin': '*',
+        'test': 'yea'
+      }
+    };
 }
