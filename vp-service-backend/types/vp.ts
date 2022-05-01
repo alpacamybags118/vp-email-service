@@ -23,10 +23,10 @@ export default class VP {
         S: this.email,
       },
       "emailSent": {
-        BOOL: this.emailSent || false
+        BOOL: this.emailSent ? this.emailSent : false
       },
       "invitationStatus": {
-        S: this.invitationStatus || InvitationStatus.PENDING
+        S: this.invitationStatus ? this.invitationStatus : InvitationStatus.PENDING
       }
     }
   }

@@ -15,9 +15,11 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.81.0",
+    "@aws-sdk/client-kms": "^3.81.0",
     "@aws-sdk/client-sesv2": "^3.81.0",
     "@aws-sdk/client-sqs": "^3.81.0",
     "@types/aws-lambda": "^8.10.95",
+    "base64url": "^3.0.1",
     "email-validator": "^2.0.4"
   }
 }

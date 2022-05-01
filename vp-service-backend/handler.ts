@@ -1,12 +1,12 @@
 import {
   APIGatewayProxyEvent,
-  Context,
   APIGatewayProxyResult,
   SQSEvent,
   SQSBatchResponse
 } from 'aws-lambda';
 import EmailClient from './helpers/email-client';
 import EmailQueue from './helpers/email-queue';
+import JwtService, { InvitationLinks } from './helpers/jwt-service';
 
 import { Validator } from './helpers/validator';
 import VPDataAccess from './helpers/vp-data-access';
@@ -14,7 +14,7 @@ import VP from './types/vp';
 
 const vpDataAccess = new VPDataAccess() // Initializing outside of function scope to keep any connection pools in memory between executions
 
-export async function AddVP(event:APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> {
+export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   let vp: VP;
 
   try {
@@ -28,14 +28,24 @@ export async function AddVP(event:APIGatewayProxyEvent, context: Context): Promi
   console.log('writing data')
 
   try {
-    await vpDataAccess.WriteVP(vp)
+    await vpDataAccess.GetVpByEmail(vp)
+      .then((data) => {
+        if(data) {
+          throw new Error('VP with provided email already on record!')
+        }
+
+        return vpDataAccess.WriteVP(vp)
+      })
     .catch((err) => {
       throw new Error(`Could not save VP info: ${err}`)
-    });
+    })
   } catch (err: unknown) {
       return {
         statusCode: 500,
-        body: `${err}`
+        body: `${err}`,
+        headers: {
+          'Content-Type': 'text/plain',
+        }
       }
   }
 
@@ -52,6 +62,9 @@ export async function AddVP(event:APIGatewayProxyEvent, context: Context): Promi
   return {
     statusCode: 200,
     body: 'VP successfully added',
+    headers: {
+      'Content-Type': 'text/plain',
+    }
   }
 }
 
@@ -70,15 +83,19 @@ export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | und
   }
 
   const sesClient = new EmailClient();
+  const jwtService = new JwtService();
 
-  await sesClient.SendEmail(vp)
+  await jwtService.CreateInviteLinks(vp)
+    .then((links: InvitationLinks) => {
+      sesClient.SendEmail(vp, links)
+    })
   .then(() => {
     vp.emailSent = true;
     console.log('writing update')
-    vpDataAccess.WriteVP(vp);
+    vpDataAccess.UpdateVp(vp);
   })
   .catch((err) => {
-    console.error(err);
+    console.log(err);
 
     return {
       batchItemFailures:[{
@@ -88,7 +105,7 @@ export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | und
   });
 }
 
-export async function GetVps(event:APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> {
+export async function GetVps(): Promise<APIGatewayProxyResult> {
   const vps = await vpDataAccess.GetVps()
     .catch((err: unknown) => {
       return {
@@ -106,4 +123,34 @@ export async function GetVps(event:APIGatewayProxyEvent, context: Context): Prom
         'test': 'yea'
       }
     };
+}
+
+export async function HandleInviteEvent(event:APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+  const token = event.queryStringParameters['token'];
+  let updatedVp: VP
+
+  const jwtService = new JwtService();
+
+  try {
+    await jwtService.DecodeSignedLink(token)
+      .then((updatedVp: VP) => {
+        vpDataAccess.WriteVP(updatedVp)
+      })
+  } catch(err: unknown) {
+    return {
+      statusCode: 500,
+      body: `${err}`,
+      headers: {
+        'Content-Type': 'text/plain',
+      }
+    }
+  }
+
+  return {
+    statusCode: 200,
+    body: 'Invite event successfully handled',
+    headers: {
+      'Content-Type': 'text/plain',
+    }
+  }
 }

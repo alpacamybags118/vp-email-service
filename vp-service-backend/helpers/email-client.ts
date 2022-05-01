@@ -5,10 +5,11 @@ import {SESv2Client,
 } from '@aws-sdk/client-sesv2';
 
 import VP from '../types/vp';
+import { InvitationLinks } from './jwt-service';
 
 export default class EmailClient {
   private sesClient: SESv2Client;
-  private templateName: string = 'invite-template'
+  private templateName = 'invite-template'
 
   constructor(){
     this.sesClient = new SESv2Client({
@@ -16,7 +17,7 @@ export default class EmailClient {
     });
   }
 
-  public async SendEmail(vp: VP) : Promise<SendEmailCommandOutput> {
+  public async SendEmail(vp: VP, links: InvitationLinks) : Promise<SendEmailCommandOutput> {
     const commandPut = new SendEmailCommand({
       FromEmailAddress: 'ino@distortionaladdict.com',
       Destination: {
@@ -27,8 +28,8 @@ export default class EmailClient {
           TemplateName: this.templateName,
           TemplateData: JSON.stringify({
             name: vp.name,
-            accepturl: 'a',
-            rejecturl: 'b'
+            accepturl: links.acceptLink,
+            rejecturl: links.rejectLink,
           }),
         }
       }

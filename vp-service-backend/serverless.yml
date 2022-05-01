@@ -22,6 +22,14 @@ provider:
           Action:
             - 'ses:SendTemplatedEmail'
           Resource: '*' # * so we can send an email to anyone
+        - Effect: Allow
+          Action:
+            - 'kms:Encrypt'
+            - 'kms:Decrypt'
+          Resource:
+            Fn::GetAtt:
+              - signingKey
+              - Arn # * so we can send an email to anyone
 
 functions:
   add-vp:
@@ -44,11 +52,28 @@ functions:
           path: vp
           method: get
           cors: true
-            
+  invite-handler:
+    handler: handler.HandleInviteEvent
+    environment:
+      DYNAMO_TABLE_NAME: vpTable
+      KEY_ID:
+        Fn::GetAtt:
+          - signingKey
+          - Arn
+    events:
+      - http:
+          path: invite
+          method: post
+          cors: true
   send-email:
     handler: handler.SendEmail
     environment:
+      BASE_URL: https://1l1wytd5s4.execute-api.us-east-2.amazonaws.com/dev/invite
       DYNAMO_TABLE_NAME: vpTable
+      KEY_ID:
+        Fn::GetAtt:
+          - signingKey
+          - Arn
     events:
       - sqs:
           arn: 
@@ -101,18 +126,54 @@ resources:
           Template:
             TemplateName: invite-template
             SubjectPart: Your Invite
-            HtmlPart: "<h1>Hello {{name}},</h1><p>Thank you for taking the time to speak to us! Please use the following links to accept or reject the invite for our next meeting.</p> <p>Accept: {{accepturl}}</p><p>Reject: {{rejecturl}}</p>"
+            HtmlPart: "<h1>Hello {{name}},</h1><p>Thank you for taking the time to speak to us! Please use the following links to accept or reject the invite for our next meeting.</p> <p>Accept: <a href={{accepturl}}>Click here</a></p><p>Reject: <a href={{rejecturl}}> Click here</a></p>"
             TextPart: "Hello {{name}}Thank you for taking the time to speak to us! Please use the following links to accept or reject the invite for our next meeting. Accept: {{accepturl}} Reject: {{rejecturl}}"
     emailQueue:
       Type: AWS::SQS::Queue
       Properties:
         QueueName: emailQueue
-    # sendEmailResource:
-    #   Type: AWS::ApiGateway::Resource
-    #   Properties:
-    #     ParentId: { "Fn::GetAtt": [{"Ref": "ApiGatewayRestApi"}, "RootResourceId"] }
-    #     PathPart: sendemail
-    #     RestApiId: {"Ref": "ApiGatewayRestApi"}
+    signingKey:
+      Type: AWS::KMS::Key
+      Properties:
+        Description: Key used to sign invite links for vp
+        KeyPolicy:
+          Version: '2012-10-17'
+          Id: key-policy
+          Statement:
+            - Sid: Enable IAM User Permissions
+              Effect: Allow
+              Principal:
+                AWS: arn:aws:iam::521296429118:root
+              Action: kms:*
+              Resource: '*'
+            - Sid: Allow administration of the key
+              Effect: Allow
+              Principal:
+                AWS: arn:aws:iam::521296429118:user/admin
+              Action:
+                - kms:Create*
+                - kms:Describe*
+                - kms:Enable*
+                - kms:List*
+                - kms:Put*
+                - kms:Update*
+                - kms:Revoke*
+                - kms:Disable*
+                - kms:Get*
+                - kms:Delete*
+                - kms:ScheduleKeyDeletion
+                - kms:CancelKeyDeletion
+              Resource: '*'            
+    sendEmailResource:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId:
+          Fn::GetAtt:
+          - ApiGatewayRestApi
+          - RootResourceId
+        PathPart: sendemail
+        RestApiId:
+          Ref: "ApiGatewayRestApi"
     # sendEmailMethod:
     #   Type: AWS::ApiGateway::Method
     #   Properties:

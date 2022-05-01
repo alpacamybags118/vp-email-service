@@ -11,10 +11,16 @@ JWT token for encoding accept or reject w/ expiration - will need to be encrypte
 NODE_ENV=test for local sqs
 
 TODO:
-1. create env files/configs for environment
-2. get UI to load vps
-3. Add add vp to ui
-4. add resend email to ui
-5. implement jwt token for email
-6. write unit tests
-7. write documentation
+Features:
+  1. decrypt jwt token and validate expiration/validity
+  2. add email key check to put vp
+  3. Add Add VP to UI
+  4. Add resend email button
+  5. Add route for reading jwt token and calling downstream lambda
+
+Cleanup:
+  1. Implement real env vars setup
+  2. Move clients up so I can use DI
+  3. Write Unit Tests
+  4. Write Docs
+
