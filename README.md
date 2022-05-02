@@ -4,6 +4,8 @@
 
 This service handles input of VP data, sending them an invite, and updating status depending on acceptance/rejection of the invite.
 
+For local development, see [DEV.md](./DEV.md)
+
 ## Architecture
 
 <img src="./docs/architecture.svg">

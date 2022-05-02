@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { KMSClient } from '@aws-sdk/client-kms';
-import { SESv2Client } from '@aws-sdk/client-sesv2';
+import { ContactListImportAction, SESv2Client } from '@aws-sdk/client-sesv2';
 import { SQSClient } from '@aws-sdk/client-sqs';
 import {
   APIGatewayProxyEvent,
@@ -61,16 +61,15 @@ export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxy
 
         return vpDataAccess.WriteVP(vp)
       })
-    .catch((err) => {
-      console.log(err);
-      throw new Error(`Could not save VP info: ${err}`)
-    })
   } catch (err: unknown) {
       return {
         statusCode: 500,
         body: `${err}`,
         headers: {
           'Content-Type': 'text/plain',
+          "Access-Control-Allow-Headers": 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with',
+          "Access-Control-Allow-Origin": '*',
+          "Access-Control-Allow-Methods": 'POST,OPTIONS'
         }
       }
   }
@@ -85,6 +84,9 @@ export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxy
     body: 'VP successfully added',
     headers: {
       'Content-Type': 'text/plain',
+      "Access-Control-Allow-Headers": 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with',
+      "Access-Control-Allow-Origin": '*',
+      "Access-Control-Allow-Methods": 'POST,OPTIONS'
     }
   }
 }
@@ -155,18 +157,23 @@ export async function HandleInviteEvent(event:APIGatewayProxyEvent): Promise<API
       .then((updatedVp: VP) => {
         console.log(updatedVp);
         console.log(`VP ${updatedVp.name} has updated invite status to ${updatedVp.invitationStatus}`);
-        vpDataAccess.UpdateVp(updatedVp)
+        return vpDataAccess.UpdateVp(updatedVp)
       })
-      .catch((err: unknown) => {
-        console.log(err);
-        throw err;
+      .then((resp) => {
+        if(resp.$metadata.httpStatusCode != 200) {
+          throw new Error('Failure writing to table');
+        }
       })
   } catch(err: unknown) {
+    console.log(err);
     return {
       statusCode: 500,
       body: `${err}`,
       headers: {
         'Content-Type': 'text/plain',
+        "Access-Control-Allow-Headers": 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with',
+        "Access-Control-Allow-Origin": '*',
+        "Access-Control-Allow-Methods": 'POST,OPTIONS'
       }
     }
   }
@@ -176,6 +183,9 @@ export async function HandleInviteEvent(event:APIGatewayProxyEvent): Promise<API
     body: 'Invite event successfully handled',
     headers: {
       'Content-Type': 'text/plain',
+      "Access-Control-Allow-Headers": 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with',
+      "Access-Control-Allow-Origin": '*',
+      "Access-Control-Allow-Methods": 'POST,OPTIONS'
     }
   }
 }

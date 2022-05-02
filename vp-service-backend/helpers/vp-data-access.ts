@@ -20,9 +20,6 @@ export default class VPDataAccess{
         'email': {
           'S': vp.email,
         },
-        'name': {
-          'S': vp.name,
-        },
       },
     });
     
@@ -65,9 +62,6 @@ export default class VPDataAccess{
         'email': {
           'S': vp.email,
         },
-        "name": {
-          'S': vp.name,
-        },
       },
       AttributeUpdates: {
         emailSent: {
@@ -79,7 +73,7 @@ export default class VPDataAccess{
         invitationStatus: {
           Action: 'PUT',
           Value: {
-            'S': vp.invitationStatus ? vp.invitationStatus : InvitationStatus.PENDING
+            'S': vp.invitationStatus
           }
         }
       }

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+export NODE_ENV=test
+
+cd vp-service-backend
+
+if [[ ! "$(docker stats --no-stream)" ]]; then
+  echo "Docker is not running!"
+  exit 1
+fi
+
+docker-compose up -d
+
+serverless dynamodb start &
+serverless offline --stage dev
