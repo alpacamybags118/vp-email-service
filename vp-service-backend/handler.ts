@@ -1,3 +1,7 @@
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { KMSClient } from '@aws-sdk/client-kms';
+import { SESv2Client } from '@aws-sdk/client-sesv2';
+import { SQSClient } from '@aws-sdk/client-sqs';
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyResult,
@@ -12,7 +16,29 @@ import { Validator } from './helpers/validator';
 import VPDataAccess from './helpers/vp-data-access';
 import VP from './types/vp';
 
-const vpDataAccess = new VPDataAccess() // Initializing outside of function scope to keep any connection pools in memory between executions
+/*
+  Initializing AWS clients outside of handler scope so they can persist between lambda executions
+*/
+const vpDataAccess = new VPDataAccess(
+  new DynamoDBClient({
+    region: process.env.IS_OFFLINE ? 'localhost' : 'us-east-2',
+    ...(process.env.IS_OFFLINE && { endpoint: 'http://localhost:8000' }),
+  }))
+
+const emailQueue: EmailQueue = new EmailQueue(
+  new SQSClient({
+    region: 'us-east-2',
+    ...(process.env.IS_OFFLINE && {endpoint: 'http://localhost:9324'}),
+}));
+
+const emailClient: EmailClient = new EmailClient(
+  new SESv2Client({
+    region: 'us-east-2'
+}));
+
+const kmsClient = new KMSClient({
+  region: 'us-east-2'
+});
 
 export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   let vp: VP;
@@ -25,7 +51,6 @@ export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxy
       body: `${err}`
     }
   }
-  console.log('writing data')
 
   try {
     await vpDataAccess.GetVpByEmail(vp)
@@ -37,6 +62,7 @@ export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxy
         return vpDataAccess.WriteVP(vp)
       })
     .catch((err) => {
+      console.log(err);
       throw new Error(`Could not save VP info: ${err}`)
     })
   } catch (err: unknown) {
@@ -48,11 +74,6 @@ export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxy
         }
       }
   }
-
-
-  console.log('putting email in queue');
-  
-  const emailQueue = new EmailQueue();
 
   await emailQueue.PutEmailInQueue(vp)
     .catch((err) => {
@@ -70,11 +91,11 @@ export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxy
 
 export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | undefined> {
   let vp: VP;
-  console.log('in the email function')
+
   try {
     vp = Validator.ValidateRequest(event.Records[0].body)
   } catch(err: unknown) {
-    console.error(err);
+    console.log(err);
     return {
       batchItemFailures:[{
         itemIdentifier: event.Records[0].messageId
@@ -82,19 +103,21 @@ export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | und
     }
   }
 
-  const sesClient = new EmailClient();
-  const jwtService = new JwtService();
+  const jwtService = new JwtService(kmsClient);
 
+  vp.emailSent = true;
   await jwtService.CreateInviteLinks(vp)
     .then((links: InvitationLinks) => {
-      sesClient.SendEmail(vp, links)
+      return emailClient.SendEmail(vp, links)
     })
-  .then(() => {
-    vp.emailSent = true;
-    console.log('writing update')
-    vpDataAccess.UpdateVp(vp);
+  .then((resp) => {
+    if(resp.$metadata.httpStatusCode != 200) {
+      console.log(resp.$metadata);
+    }
+
+    return vpDataAccess.UpdateVp(vp);
   })
-  .catch((err) => {
+  .catch((err: unknown) => {
     console.log(err);
 
     return {
@@ -106,35 +129,37 @@ export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | und
 }
 
 export async function GetVps(): Promise<APIGatewayProxyResult> {
-  const vps = await vpDataAccess.GetVps()
-    .catch((err: unknown) => {
-      return {
-        statusCode: 500,
-        body: `${err}`
-      }
-    });
+  let vps: VP[];
+
+  try {
+    vps = await vpDataAccess.GetVps();
+  } catch(err: unknown) {
+    return {
+      statusCode: 500,
+      body: `${err}`
+    }
+  }
 
     return {
       statusCode: 200,
       body: JSON.stringify(vps),
-      headers: {
-        'Access-Control-Allow-Credentials': true,
-        'Access-Control-Allow-Origin': '*',
-        'test': 'yea'
-      }
     };
 }
 
 export async function HandleInviteEvent(event:APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const token = event.queryStringParameters['token'];
-  let updatedVp: VP
-
-  const jwtService = new JwtService();
+  const jwtService = new JwtService(kmsClient);
 
   try {
     await jwtService.DecodeSignedLink(token)
       .then((updatedVp: VP) => {
-        vpDataAccess.WriteVP(updatedVp)
+        console.log(updatedVp);
+        console.log(`VP ${updatedVp.name} has updated invite status to ${updatedVp.invitationStatus}`);
+        vpDataAccess.UpdateVp(updatedVp)
+      })
+      .catch((err: unknown) => {
+        console.log(err);
+        throw err;
       })
   } catch(err: unknown) {
     return {

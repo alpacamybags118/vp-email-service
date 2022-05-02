@@ -23,14 +23,9 @@ export interface InvitationLinks {
 }
 
 export default class JwtService {
-  private client: KMSClient;
   private signingkey: string = process.env.KEY_ID
 
-  constructor() {
-    this.client = new KMSClient({
-      region: 'us-east-2'
-    });
-  }
+  constructor(private readonly client: KMSClient) {}
 
   public async CreateInviteLinks(vp: VP): Promise<InvitationLinks> {
     const links = await Promise.all(['accept', 'reject'].map((status) => {

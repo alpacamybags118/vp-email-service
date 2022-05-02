@@ -1,25 +1,17 @@
 import { DynamoDBClient,  
   PutItemCommand, 
-  PutItemCommandInput, 
   PutItemCommandOutput, 
   ScanCommand, 
   ScanCommandOutput,
   GetItemCommand,
   UpdateItemCommandOutput,
-  UpdateItemCommand
+  UpdateItemCommand,
 } from '@aws-sdk/client-dynamodb';
 
 import VP, { InvitationStatus } from '../types/vp';
 
 export default class VPDataAccess{
-  private dynamoClient: DynamoDBClient
-
-  constructor() {
-    this.dynamoClient = new DynamoDBClient({
-      region: process.env.IS_OFFLINE ? 'localhost' : 'us-east-2',
-      ...(process.env.IS_OFFLINE && { endpoint: 'http://localhost:8000' }),
-    });
-  }
+  constructor(private readonly dynamoClient: DynamoDBClient) {}
 
   public async GetVpByEmail(vp: VP): Promise<VP | undefined> {
     const request = new GetItemCommand({
@@ -36,16 +28,12 @@ export default class VPDataAccess{
     
     return this.dynamoClient.send(request)
       .then((record) => {
-        console.log(record);
         if(!record.Item) {
           return undefined;
         }
 
         return new VP(record.Item['name'].S, record.Item['email'].S, record.Item['emailSent'].BOOL, InvitationStatus[record.Item['invitationStatus'].S])
-      })
-      .catch((err) => {
-        throw err;
-      })
+      });
   }
 
   public async GetVps(): Promise<VP[]> {
@@ -59,10 +47,6 @@ export default class VPDataAccess{
           return new VP(record['name'].S, record['email'].S, record['emailSent'].BOOL, InvitationStatus[record['invitationStatus'].S]);
         })
       })
-      .catch((err: unknown) => {
-        console.log(err);
-        throw err;
-      })
   }
 
   public async WriteVP(vp: VP): Promise<PutItemCommandOutput> {
@@ -71,31 +55,37 @@ export default class VPDataAccess{
       Item: vp.ToDynamoItemInput(),
     })
 
-    console.log(request.input.Item);
     return this.dynamoClient.send(request)
-      .catch((err: unknown) => {
-        console.log(err);
-        throw err
-      });
   }
 
   public async UpdateVp(vp: VP): Promise<UpdateItemCommandOutput> {
+    console.log(vp.invitationStatus);
     const request = new UpdateItemCommand({
       TableName: process.env.DYNAMO_TABLE_NAME,
       Key: {
         'email': {
           'S': vp.email,
         },
-        'name': {
+        "name": {
           'S': vp.name,
         },
       },
+      AttributeUpdates: {
+        emailSent: {
+          Action: 'PUT',
+          Value: {
+            'BOOL': vp.emailSent
+          }
+        },
+        invitationStatus: {
+          Action: 'PUT',
+          Value: {
+            'S': vp.invitationStatus ? vp.invitationStatus : InvitationStatus.PENDING
+          }
+        }
+      }
     });
 
-    return this.dynamoClient.send(request)
-      .catch((err: unknown) => {
-        console.log(err);
-        throw err
-      });
+    return this.dynamoClient.send(request);
   }
 }

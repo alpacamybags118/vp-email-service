@@ -2,14 +2,8 @@ import {SQSClient, SendMessageCommand, SendMessageCommandOutput} from '@aws-sdk/
 import VP from '../types/vp';
 
 export default class EmailQueue {
-  private sqsClient: SQSClient
 
-  constructor(){
-    this.sqsClient = new SQSClient({ // TODO pass in client instead for testing ease
-      region: 'us-east-2',
-      ...(process.env.IS_OFFLINE && {endpoint: 'http://localhost:9324'}),
-    });
-  }
+  constructor(private readonly sqsClient: SQSClient){}
 
   public async PutEmailInQueue(vp: VP): Promise<SendMessageCommandOutput> {
     const message = new SendMessageCommand({

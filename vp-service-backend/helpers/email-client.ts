@@ -1,6 +1,6 @@
-import {SESv2Client, 
+import {
+  SESv2Client, 
   SendEmailCommand, 
-  SendEmailCommandInput, 
   SendEmailCommandOutput
 } from '@aws-sdk/client-sesv2';
 
@@ -8,14 +8,9 @@ import VP from '../types/vp';
 import { InvitationLinks } from './jwt-service';
 
 export default class EmailClient {
-  private sesClient: SESv2Client;
   private templateName = 'invite-template'
 
-  constructor(){
-    this.sesClient = new SESv2Client({
-      region: 'us-east-2'
-    });
-  }
+  constructor(private readonly sesClient: SESv2Client){}
 
   public async SendEmail(vp: VP, links: InvitationLinks) : Promise<SendEmailCommandOutput> {
     const commandPut = new SendEmailCommand({
