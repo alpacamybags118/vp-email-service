@@ -60,11 +60,14 @@ export default class JwtService {
             const signature = base64url(Buffer.from(link));
     
             return `${parts.header}.${parts.payload}.${signature}`;
-          })
-        .catch((err) => {
-          throw err;
+        })
+        .catch((err: unknown) => {
+          throw err
         });
-    }));
+    }))
+    .catch((err) => {
+      throw err;
+    })
 
     return {
       acceptLink: `${process.env.BASE_URL}?token=${links[0]}`,
@@ -80,8 +83,9 @@ export default class JwtService {
     } catch(err) {
       throw new Error('Invalid token');
     }
-    console.log(unpackedToken);
+
     if(this.IsExpired(new Date(unpackedToken.payload.exp))) {
+      console.log('here')
       throw new Error('Token has expired!');
     }
 
@@ -93,7 +97,7 @@ export default class JwtService {
     return this.client.send(decryptArgs)
       .then((decryptedSignature) => {
         const decodedSig = base64url.decode(Buffer.from(decryptedSignature.Plaintext).toString('base64'));
-
+        console.log(decodedSig);
         if(decodedSig !== `${unpackedToken.encrypted.headers}.${unpackedToken.encrypted.payload}`) {
           throw new Error('Signature is invalid!');
         }
@@ -103,8 +107,7 @@ export default class JwtService {
           unpackedToken.payload.inviteStatus === 'accept' ? InvitationStatus.ACCEPTED : InvitationStatus.REJECTED);
         })
         .catch((err) => {
-          console.log(err);
-          throw new Error('Token could not be decoded');
+          throw err;
         })
   }
 

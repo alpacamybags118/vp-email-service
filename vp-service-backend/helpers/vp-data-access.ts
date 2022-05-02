@@ -59,7 +59,6 @@ export default class VPDataAccess{
   }
 
   public async UpdateVp(vp: VP): Promise<UpdateItemCommandOutput> {
-    console.log(vp.invitationStatus);
     const request = new UpdateItemCommand({
       TableName: process.env.DYNAMO_TABLE_NAME,
       Key: {

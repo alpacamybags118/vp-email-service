@@ -2,7 +2,7 @@
   "scripts": {
     "start:dev": "serverless offline --stage dev",
     "lint": "eslint . --ext .ts",
-    "test": "jest"
+    "test": "jest --coverage"
   },
   "devDependencies": {
     "@types/jest": "^27.4.1",
