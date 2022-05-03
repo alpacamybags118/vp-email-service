@@ -71,7 +71,7 @@ functions:
   send-email:
     handler: handler.SendEmail
     environment:
-      BASE_URL: http://localhost:3000/invite
+      BASE_URL: https://vp.distortionaladdict.com/invite
       DYNAMO_TABLE_NAME: vpTable
       KEY_ID:
         Fn::GetAtt:
@@ -187,8 +187,6 @@ resources:
         KeySchema:
           - AttributeName: email
             KeyType: HASH
-          - AttributeName: email
-            KeyType: RANGE
         ProvisionedThroughput:
             ReadCapacityUnits: 1
             WriteCapacityUnits: 1

@@ -33,11 +33,11 @@ function Invite() {
   useEffect(() => {
     fetchData()
       .then((res) => {
-        initResp(<h1>good</h1>)
+        initResp(<p>Your invitation has successfully been processed!</p>)
       })
       .catch((err) => {
         console.error(err);
-        initResp(<h1>good</h1>)
+        initResp(<p>Something went wrong while processing your request. Please try again.</p>)
       })
   }, [])
 

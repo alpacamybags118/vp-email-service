@@ -1,7 +1,7 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import * as EmailValidator from 'email-validator';
 
-import VP from '../types/vp'
+import VP, { InvitationStatus } from '../types/vp'
 
 export class Validator {
   static ValidateRequest(request: string): VP {
@@ -10,7 +10,7 @@ export class Validator {
     }
 
     const vpData = JSON.parse(request)
-    const vp = new VP(vpData.name, vpData.email);
+    const vp = new VP(vpData.name, vpData.email, vpData.emailSent || false, vpData.InvitationStatus || InvitationStatus.PENDING);
 
     if(!vp.name || !vp.email) {
       throw new Error('Name or Email missing from request.');

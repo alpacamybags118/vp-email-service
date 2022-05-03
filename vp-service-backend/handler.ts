@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { KMSClient } from '@aws-sdk/client-kms';
-import { ContactListImportAction, SESv2Client } from '@aws-sdk/client-sesv2';
+import { SESv2Client } from '@aws-sdk/client-sesv2';
 import { SQSClient } from '@aws-sdk/client-sqs';
 import {
   APIGatewayProxyEvent,
@@ -45,10 +45,16 @@ export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxy
 
   try {
     vp = Validator.ValidateRequest(event.body || "")
+    console.log(vp);
   } catch(err: unknown) {
     return {
       statusCode: 500,
-      body: `${err}`
+      body: `${err}`,
+      headers: {
+        "Access-Control-Allow-Methods": 'PUT,OPTIONS',
+        "Access-Control-Allow-Headers": 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with',
+        "Access-Control-Allow-Origin": '*',
+      }
     }
   }
 
@@ -69,7 +75,7 @@ export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxy
           'Content-Type': 'text/plain',
           "Access-Control-Allow-Headers": 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with',
           "Access-Control-Allow-Origin": '*',
-          "Access-Control-Allow-Methods": 'POST,OPTIONS'
+          "Access-Control-Allow-Methods": 'PUT,OPTIONS'
         }
       }
   }
@@ -86,12 +92,12 @@ export async function AddVP(event:APIGatewayProxyEvent): Promise<APIGatewayProxy
       'Content-Type': 'text/plain',
       "Access-Control-Allow-Headers": 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with',
       "Access-Control-Allow-Origin": '*',
-      "Access-Control-Allow-Methods": 'POST,OPTIONS'
+      "Access-Control-Allow-Methods": 'PUT,OPTIONS'
     }
   }
 }
 
-export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | undefined> {
+export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | void> {
   let vp: VP;
 
   try {
@@ -106,9 +112,10 @@ export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | und
   }
 
   const jwtService = new JwtService(kmsClient);
-
   vp.emailSent = true;
-  await jwtService.CreateInviteLinks(vp)
+
+  try {
+    await jwtService.CreateInviteLinks(vp)
     .then((links: InvitationLinks) => {
       return emailClient.SendEmail(vp, links)
     })
@@ -119,7 +126,7 @@ export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | und
 
     return vpDataAccess.UpdateVp(vp);
   })
-  .catch((err: unknown) => {
+  } catch(err:unknown) {
     console.log(err);
 
     return {
@@ -127,7 +134,7 @@ export async function SendEmail(event: SQSEvent): Promise<SQSBatchResponse | und
         itemIdentifier: event.Records[0].messageId
       }]
     }
-  });
+  }
 }
 
 export async function GetVps(): Promise<APIGatewayProxyResult> {
@@ -138,13 +145,23 @@ export async function GetVps(): Promise<APIGatewayProxyResult> {
   } catch(err: unknown) {
     return {
       statusCode: 500,
-      body: `${err}`
+      body: `${err}`,
+      headers: {
+        "Access-Control-Allow-Headers": 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with',
+        "Access-Control-Allow-Origin": '*',
+        "Access-Control-Allow-Methods": 'POST,OPTIONS'
+      }
     }
   }
 
     return {
       statusCode: 200,
       body: JSON.stringify(vps),
+      headers: {
+        "Access-Control-Allow-Headers": 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-requested-with',
+        "Access-Control-Allow-Origin": '*',
+        "Access-Control-Allow-Methods": 'POST,OPTIONS'
+      }
     };
 }
 
