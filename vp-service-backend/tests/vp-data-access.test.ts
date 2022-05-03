@@ -153,16 +153,15 @@ describe('vp-data-access', () => {
 
   });
 
-  it('VP is not updated if name and email dont match input', async () => {
+  it('VP is not updated if email dont match input', async () => {
     const mockVP = new VP('test', 'test@test.com', false, InvitationStatus.PENDING);
 
     mockDynamo
       .on(UpdateItemCommand)
       .callsFake((input) => {
-        const name = input.Key.name.S
         const email = input.Key.email.S
         
-        if(name != mockVP.name || mockVP.email != email) {
+        if(mockVP.email != email) {
           return;
         }
         

@@ -1,16 +1,16 @@
 import { Validator } from '../helpers/validator';
-import VP from '../types/vp';
+import VP, { InvitationStatus } from '../types/vp';
 
 describe('validator', () => {
   it('should return a VP for valid input', () => {
     const request = JSON.stringify({
       name: 'tester',
-      email: 'tester@test.com'
+      email: 'tester@test.com',
     });
 
     const result = Validator.ValidateRequest(request);
 
-    expect(result).toEqual(new VP('tester', 'tester@test.com'));
+    expect(result).toEqual(new VP('tester', 'tester@test.com', false, InvitationStatus.PENDING));
   });
 
   it('Should throw an error if the request is empty', () => {
